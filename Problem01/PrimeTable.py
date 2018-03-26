@@ -12,6 +12,7 @@ import numpy as np
 # set the range of total numbers
 size = input("The Size of potential random number: ")
 size = int(size)
+size = size + 1
 
 # setup the prime table of the range
 PrimeTable = np.ones(size)
@@ -35,7 +36,7 @@ paraA = int(paraA)
 factorA = []
 idxA = 0
 
-while Prime[idxA] < int(math.ceil(paraA/2.0)):
+while Prime[idxA] <= math.ceil(paraA):
     testFactor = paraA % Prime[idxA]
     if testFactor == 0:
         factorA.append(Prime[idxA])
@@ -43,4 +44,19 @@ while Prime[idxA] < int(math.ceil(paraA/2.0)):
         pass
     idxA = idxA + 1
 
-# inclusion-exclusion 
+print(factorA)
+
+# exclude the prime factor of given number A
+AllNumber = np.ones(size)
+AllNumber[0] = 0
+
+for i in range(0, len(factorA)):
+    AddStep = factorA[i]
+    NowValue = AddStep
+    while NowValue < size:
+        AllNumber[NowValue] = 0
+        NowValue = NowValue + AddStep
+
+prob = np.sum(AllNumber) / (AllNumber.shape[0] - 1)
+print('The probability of gcd(' + str(paraA) +  ', N) = 1 is ', prob)
+

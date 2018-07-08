@@ -1,0 +1,618 @@
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \ifxetex
+    \usepackage{mathspec}
+  \else
+    \usepackage{fontspec}
+  \fi
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{unicode=true,
+            pdftitle={Stochastic Process Final Project},
+            pdfauthor={Wu, Tung Cheng},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\usepackage{graphicx,grffile}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+%%% Use protect on footnotes to avoid problems with footnotes in titles
+\let\rmarkdownfootnote\footnote%
+\def\footnote{\protect\rmarkdownfootnote}
+
+%%% Change title format to be more compact
+\usepackage{titling}
+
+% Create subtitle command for use in maketitle
+\newcommand{\subtitle}[1]{
+  \posttitle{
+    \begin{center}\large#1\end{center}
+    }
+}
+
+\setlength{\droptitle}{-2em}
+
+  \title{Stochastic Process Final Project}
+    \pretitle{\vspace{\droptitle}\centering\huge}
+  \posttitle{\par}
+  \subtitle{Testing robustness of centrel limit theroy}
+  \author{Wu, Tung Cheng}
+    \preauthor{\centering\large\emph}
+  \postauthor{\par}
+    \date{}
+    \predate{}\postdate{}
+  
+\usepackage{xeCJK}
+\setCJKmainfont{標楷體}
+
+\begin{document}
+\maketitle
+
+\section{一、簡介}
+
+中央極限定理有許多不同的版本，根據 wikipedia
+的說明：「大量互相獨立的隨機變數之均值，經適當的標準化後，依分布收斂於常態。」{[}1{]}。這個定義本身有許多可以延伸的問題，例如：
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  何謂「適當的標準化」？
+\item
+  任意的隨機變數都可以成立嗎？
+\item
+  隨機變數的均質可以成立，那其他的描述統計量(最大值、標準差\ldots{})可以成立嗎？
+\item
+  是否有一個定值，可以稱為大量？
+\end{enumerate}
+
+本文將藉由統計語言R實作，嘗試回答上述問題，並以圖像呈現觀察到的結果。
+
+\section{二、背景回顧}
+
+最初始的中央極限定理版本，是法國數學家 Abraham de Moivre 於 1738
+年在其著作
+\href{https://books.google.com.tw/books?id=PII_AAAAcAAJ\&hl=zh-TW\&pg=PA235\#v=onepage\&q\&f=false}{The
+Doctrine of Chances} 中所提出{[}2{]}。說明進行無限次獨立白努利測試
+(Bernoulli trials) 所形成的二項分布，最終其機率質量函數(probability mass
+function) 會近似於平均數為 \(np\)、標準差為 \(\sqrt{np(1-p)}\)
+的常態分布，這個發現於 1810 年由 Pierre-Simon Laplace
+使用特徵函數的方式證明{[}3{]}。其後的數學家們，如：Poisson, Cauchy,
+Dirichlet, Lindeberg
+也都對這個理論，提出擴展與相關的證明，使得後世的統計學得以對樣本有常態如此方便的假設。
+
+\section{三、驗證問題}
+
+\hypertarget{-}{%
+\subsection{(一) 常態檢測工具}\label{-}}
+
+我們要檢驗一個分布是否符合常態分布，因此需要檢驗的方法。在統計檢定上有許多檢測常態的方法，如
+Kolmogorov-Smirnov test、The Anderson-Darling test、Shapiro-Wilks
+test。在 Asghar Ghasemi 與 Saleh Zahediasl 的研究中{[}4{]}，指出
+Shapiro-Wilk test 是最穩定的方法，因此本文之常態檢定，將使用
+Shapiro-Wilk test 進行。我們可以藉由檢定結果中的 p-value
+判斷樣本是否為常態，若 p-value \(> 0.05\)
+，表示樣本為常態分布。下面提供一個範例：
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  norm_dta
+## W = 0.99965, p-value = 0.5652
+\end{verbatim}
+
+再提供一個樣本為 Poisson 的範例(即不符合常態分布)
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  poi_dta
+## W = 0.94902, p-value < 2.2e-16
+\end{verbatim}
+
+除了 Shapiro-Wilk test 外，在實務上除了繪製機率密度函數圖，也常繪製 Q--Q
+(quantile-quantile) plot，將手上之樣本與常態資料比較。因此在呈現
+Shapiro-Wilk 檢定結果的同時，本文也將呈現 Q-Q plot。若 Q-Q plot
+上的資料點落在紅線上，則表示樣本符合常態分布，上述符合常態配分之樣本的
+Q-Q plot 如下：
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-3-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-3-2}
+
+樣本為 Poisson 的 Q-Q plot 如下：
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-4-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-4-2}
+
+\hypertarget{-}{%
+\subsection{(二) 適當的標準化}\label{-}}
+
+首先，我想先討論「適當的標準化」，因為會影響後續的實驗流程。測試：
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  不標準化
+\item
+  \(\frac{(x-\mu_x)}{\sigma_x}\)
+\end{enumerate}
+
+我們使用 R 的 function 製作 \(N(15, 21)\) 的常態分布 5000
+個，並取其各自的平均數。
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  mean_dta
+## W = 0.9997, p-value = 0.6973
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-5-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-5-2}
+
+我們針對尚未標準化的樣本進行檢驗，從 Shapiro-Wilk test
+的結果，我們可以看到 p \textgreater{} 0.05。從 Q-Q plot
+中也可以觀察到，數據點幾乎都在紅線上，表示與常態分布相似。這與 wiki
+上的說明不相符，但根據老師上課的說明，經過標準化的樣本是符合標準常態分布。
+
+接著我們來看，經過 \(\frac{(x-\mu_x)}{\sigma_x}\) 標準化的結果
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  dta.scale
+## W = 0.9997, p-value = 0.6973
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-6-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-6-2}
+
+從檢定的結果上來說並沒有差異，但觀察兩張圖的縱軸，可以發現數值與刻度寬度不同，表示兩樣本的平均與標準差不同。總結來說，就我們的實驗結果顯示，不標準化不影響是否為常態分布，但影響最後收斂於哪個常態。為避免有本實驗未觀察到的情況，往後實驗仍會進行標準化。
+
+\hypertarget{-}{%
+\subsection{(三) 任意的隨機變數}\label{-}}
+
+接著我們討論不同隨機變數的平均數，是否也會收斂於常態分布，以下測試一些上課提過的分布：
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Binomial distribution (set probability = 0.5)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  mean_dta.binom
+## W = 0.99977, p-value = 0.8821
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-7-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-7-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  Poisson distribution (set \(\lambda = 3\))
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  mean_dta.poi
+## W = 0.99947, p-value = 0.1668
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-8-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-8-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  Uniform distribution (set Uniform distribution \(\in [0,1]\))
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  mean_dta.uni
+## W = 0.9995, p-value = 0.2066
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-9-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-9-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  Exponential distribution (set \(\lambda = 3\))
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  mean_dta.exp
+## W = 0.99972, p-value = 0.7763
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-10-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-10-2}
+
+由上述的檢定與 Q-Q plot
+顯示，隨機變數的種類，不影響其平均值是否收斂於常態分布。總結來說，在上課提到的四個隨機變數，經過測試後發現
+5000 個樣本平均值，會收斂於常態分布。
+
+\hypertarget{-}{%
+\subsection{(四) 其他的描述統計量}\label{-}}
+
+Wikipedia
+說明的中央極限定理，隨機變數的平均數會收斂於常態分布，以下測試其他的描述統計量(ex:
+標準差、最大值、最小值、偏態(skewness, 三階動差)、峰度(kurtosis,
+四階動差))，使用前述的 \(N(15, 21)\) 分布進行測試。
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  標準差
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  sd_dta
+## W = 0.99974, p-value = 0.8158
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-11-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-11-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  最大值
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  max_dta
+## W = 0.9623, p-value < 2.2e-16
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-12-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-12-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  最小值
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  min_dta
+## W = 0.96835, p-value < 2.2e-16
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-13-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-13-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  偏態
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  skew_dta
+## W = 0.99971, p-value = 0.7493
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-14-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-14-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
+\tightlist
+\item
+  峰度
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  kurt_dta
+## W = 0.99798, p-value = 4.202e-06
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-15-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-15-2}
+
+透過上面的測試，我們發現改成其他描述統計量時，只有標準差與偏態
+(即二階與三階動差) 會收斂於常態。提出以下兩種可能性：
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  所有的描述統計量都會收斂於常態分布，只是目前 5000
+  個隨機變數的描述統計量，可能不夠「大量」，因此沒有收斂於常態分布
+\item
+  只有動差類的描述統計量，會收斂於常態分布，隨著階層越高，需要的「大量」也越大，因此本次測試的峰度並沒有收斂。
+\end{enumerate}
+
+上述的可能性可以歸納成兩個測試項目：
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  增加隨機變數的量
+\end{enumerate}
+
+然而本文中使用的 Shapiro-Wilk 最多接受 5000
+筆資料。但更換檢定方法，無法確定效果來自「更換檢定方法」還是「增加樣本量」。由於時間因素，本文增加樣本數繼續測試。
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  使用其他描述統計量測試 (下方使用中位數測試)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  median_dta
+## W = 0.99972, p-value = 0.7681
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-16-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-16-2}
+
+使用中位數測試後發現，並非只有動差類的描述統計量，會收斂於常態分布。整體來說，更改樣本的描述統計值時，經過測試結果發現「隨機變數的中位數、標準差、偏態，會收斂於常態分布」。其他的描述統計量，由於
+Shapiro-Wilk test
+的限制，不確定是不會收斂，還是樣本不夠大量，因此沒有收斂於常態分配。此處的隨機變數是常態分布，並未測試其他分布的情況。
+
+\hypertarget{-}{%
+\subsection{(五) 大量有多大}\label{-}}
+
+最後測試需要多少樣本數才能稱為大量，由於在極小樣本時，p-value
+的參考價值有限，故本小節主要觀察機率密度函數圖與 Q-Q
+plot。以下測試不同數量隨機變數的平均數，會收斂於常態分布。
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \(N = 3\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N3_dta
+## W = 0.93208, p-value = 0.4965
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-17-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-17-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  \(N = 5\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N5_dta
+## W = 0.98944, p-value = 0.9777
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-18-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-18-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  \(N = 10\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N10_dta
+## W = 0.96593, p-value = 0.8508
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-19-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-19-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  \(N = 20\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N20_dta
+## W = 0.98333, p-value = 0.9696
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-20-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-20-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
+\tightlist
+\item
+  \(N = 30\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N30_dta
+## W = 0.96898, p-value = 0.5116
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-21-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-21-2}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
+\tightlist
+\item
+  \(N = 50\)
+\end{enumerate}
+
+\begin{verbatim}
+## 
+##  Shapiro-Wilk normality test
+## 
+## data:  N50_dta
+## W = 0.98596, p-value = 0.8118
+\end{verbatim}
+
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-22-1}
+\includegraphics[width=0.5\linewidth]{FinalProject_files/figure-latex/unnamed-chunk-22-2}
+
+\section{四、總結}
+
+經過本文的一系列實驗，關於「大量互相獨立的隨機變數之均值，經適當的標準化後，依分布收斂於常態。」我們提出了四個問題並發現，中央極限定理比想像中的還要穩定。不論是替換隨機變數，或是計算不同的隨機變數描述統計值，甚至是沒有標準化，觀察到結果依然收斂於常態分布。
+
+不過本文也有些不完整之處，個人認為最明顯的問題在於檢定常態的方法。本文使用統計檢定的方式，並直接使用
+p-value 來判斷結果，這其實是一個蠻危險的作法。p-value
+只是眾多指標中的一個指標，由於使用簡單與教學方便，因此在許多檢定上常被使用，但不表示
+p-value 可以當作唯一的指標。(ex: 重複 100 次實驗，可能會得到 94 次
+p-value \textless{} 0.05 的結果，當觀察到另外的 6
+次時，直接下結論就錯了。)
+
+期望若有學弟妹想要做相關的 final
+project，可以使用其他的方法來判斷是否為常態分布。
+
+\section{五、心得}
+
+從大一以來就一直聽聞中央極限定理的神奇事蹟，但也就停留在最基本的認識，很開心透過這次的
+Final Project
+能與這位認識已久的朋友，有更深入的認識。若學弟妹有需要，還請老師將這份報告分享給他們，感謝老師這學期的指導。
+
+\hypertarget{reference}{%
+\section*{Reference}\label{reference}}
+\addcontentsline{toc}{section}{Reference}
+
+\hypertarget{refs}{}
+\leavevmode\hypertarget{ref-wiki:xxx}{}%
+{[}1{]} wikipedia, ``中央極限定理 - wikipedia, the free encyclopedia.''
+2018.
+
+\leavevmode\hypertarget{ref-de1738doctrine}{}%
+{[}2{]} A. de Moivre, \emph{The doctrine of chances}. Woodfall, 1738,
+pp. 235--243.
+
+\leavevmode\hypertarget{ref-Fischer2011}{}%
+{[}3{]} H. Fischer, ``The central limit theorem from laplace to cauchy:
+Changes in stochastic objectives and in analytical methods,'' in \emph{A
+history of the central limit theorem: From classical to modern
+probability theory}, New York, NY: Springer New York, 2011, pp. 17--74.
+
+\leavevmode\hypertarget{ref-ghasemi2012normality}{}%
+{[}4{]} A. Ghasemi and S. Zahediasl, ``Normality tests for statistical
+analysis: A guide for non-statisticians,'' \emph{International journal
+of endocrinology and metabolism}, vol. 10, no. 2, p. 486, 2012.
+
+
+\end{document}

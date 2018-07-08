@@ -1,0 +1,285 @@
+---
+title: "Stochastic Process Final Project"
+subtitle: "Testing robustness of centrel limit theroy"
+author: "Wu, Tung Cheng"
+output: 
+  pdf_document: 
+    includes:
+      in_header: header.tex
+    keep_tex: yes
+    latex_engine: xelatex
+  html_document: default
+  word_document: default
+bibliography: mybib.bib
+csl: ieee.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load(moments)
+```
+
+# 一、簡介
+中央極限定理有許多不同的版本，根據 wikipedia 的說明：「大量互相獨立的隨機變數之均值，經適當的標準化後，依分布收斂於常態。」[@wiki:xxx]。這個定義本身有許多可以延伸的問題，例如：
+
+1. 何謂「適當的標準化」？
+2. 任意的隨機變數都可以成立嗎？
+3. 隨機變數的均質可以成立，那其他的描述統計量(最大值、標準差...)可以成立嗎？
+4. 是否有一個定值，可以稱為大量？
+
+本文將藉由統計語言R實作，嘗試回答上述問題，並以圖像呈現觀察到的結果。
+
+# 二、背景回顧
+最初始的中央極限定理版本，是法國數學家 Abraham de Moivre 於 1738 年在其著作 [The Doctrine of Chances](https://books.google.com.tw/books?id=PII_AAAAcAAJ&hl=zh-TW&pg=PA235#v=onepage&q&f=false) 中所提出[@de1738doctrine]。說明進行無限次獨立白努利測試 (Bernoulli trials) 所形成的二項分布，最終其機率質量函數(probability mass function) 會近似於平均數為 $np$、標準差為 $\sqrt{np(1-p)}$ 的常態分布，這個發現於 1810 年由 Pierre-Simon Laplace 使用特徵函數的方式證明[@Fischer2011]。其後的數學家們，如：Poisson, Cauchy, Dirichlet, Lindeberg 也都對這個理論，提出擴展與相關的證明，使得後世的統計學得以對樣本有常態如此方便的假設。
+
+# 三、驗證問題
+## (一) 常態檢測工具
+我們要檢驗一個分布是否符合常態分布，因此需要檢驗的方法。在統計檢定上有許多檢測常態的方法，如 Kolmogorov-Smirnov test、The Anderson-Darling test、Shapiro-Wilks test。在 Asghar Ghasemi 與 Saleh Zahediasl 的研究中[@ghasemi2012normality]，指出 Shapiro-Wilk test 是最穩定的方法，因此本文之常態檢定，將使用 Shapiro-Wilk test 進行。我們可以藉由檢定結果中的 p-value 判斷樣本是否為常態，若 p-value  $> 0.05$ ，表示樣本為常態分布。下面提供一個範例：
+```{r, echo = F}
+norm_dta = rnorm(5000)
+shapiro.test(norm_dta)
+```
+
+再提供一個樣本為 Poisson 的範例(即不符合常態分布)
+```{r, echo = F}
+poi_dta = rpois(5000, 3)
+shapiro.test(poi_dta)
+```
+除了 Shapiro-Wilk test 外，在實務上除了繪製機率密度函數圖，也常繪製 Q–Q (quantile-quantile) plot，將手上之樣本與常態資料比較。因此在呈現 Shapiro-Wilk 檢定結果的同時，本文也將呈現 Q-Q plot。若 Q-Q plot 上的資料點落在紅線上，則表示樣本符合常態分布，上述符合常態配分之樣本的 Q-Q plot 如下：
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+plot(density(norm_dta), main = 'Probability Density Plot:\n Sampling from normal distribution')
+qqnorm(norm_dta, main = 'Q-Q Plot:\n Sampling from normal distribution')
+qqline(norm_dta, col = 'red')
+```
+
+樣本為 Poisson 的 Q-Q plot 如下：
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+plot(density(poi_dta), main = 'Probability Density Plot:\n Sampling from Poisson distribution')
+qqnorm(poi_dta, main = 'Q-Q Plot:\n Sampling from Poisson distribution')
+qqline(poi_dta, col = 'red')
+```
+
+
+## (二) 適當的標準化
+首先，我想先討論「適當的標準化」，因為會影響後續的實驗流程。測試：
+
+1. 不標準化
+2. $\frac{(x-\mu_x)}{\sigma_x}$
+
+我們使用 R 的 function 製作 $N(15, 21)$ 的常態分布 5000 個，並取其各自的平均數。
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+set.seed(06291441)
+dta = replicate(5000, rnorm(5000, 15, 21))
+mean_dta = apply(dta, 2, mean)
+shapiro.test(mean_dta)
+plot(density(mean_dta), main='Probability Density Plot:\n Sampling from normal distribution without normalization')
+qqnorm(mean_dta, main = 'Q-Q Plot:\n Sampling from normal distribution without normalization')
+qqline(mean_dta, col = 'red')
+```
+
+我們針對尚未標準化的樣本進行檢驗，從 Shapiro-Wilk test 的結果，我們可以看到 p > 0.05。從 Q-Q plot 中也可以觀察到，數據點幾乎都在紅線上，表示與常態分布相似。這與 wiki 上的說明不相符，但根據老師上課的說明，經過標準化的樣本是符合標準常態分布。
+
+接著我們來看，經過 $\frac{(x-\mu_x)}{\sigma_x}$ 標準化的結果
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+dta.scale = scale(mean_dta)
+shapiro.test(dta.scale)
+plot(density(dta.scale), main='Probability Density Plot:\n Sampling from normal distribution with normalization')
+qqnorm(dta.scale, main = 'Q-Q Plot:\n Sampling from normal distribution with normalization')
+qqline(dta.scale, col = 'red')
+```
+
+從檢定的結果上來說並沒有差異，但觀察兩張圖的縱軸，可以發現數值與刻度寬度不同，表示兩樣本的平均與標準差不同。總結來說，就我們的實驗結果顯示，不標準化不影響是否為常態分布，但影響最後收斂於哪個常態。為避免有本實驗未觀察到的情況，往後實驗仍會進行標準化。
+
+## (三) 任意的隨機變數
+接著我們討論不同隨機變數的平均數，是否也會收斂於常態分布，以下測試一些上課提過的分布：
+
+1. Binomial distribution (set probability = 0.5)
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+dta.binom = replicate(5000, rbinom(5000, 1, 0.5))
+mean_dta.binom = scale(apply(dta.binom, 2, mean))
+shapiro.test(mean_dta.binom)
+plot(density(mean_dta.binom), main='Probability Density Plot:\n Sampling from binomial distribution (p = 0.5)')
+qqnorm(mean_dta.binom, main = 'Q-Q Plot:\n Sampling from binomial distribution (p = 0.5)')
+qqline(mean_dta.binom, col = 'red')
+```
+
+2. Poisson distribution (set $\lambda = 3$)
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+dta.poi = replicate(5000, rpois(5000, 3))
+mean_dta.poi = apply(dta.poi, 2, mean)
+shapiro.test(mean_dta.poi)
+plot(density(mean_dta.poi), main='Probability Density Plot:\n Sampling from Poisson distribution (lambda = 3)')
+qqnorm(mean_dta.poi, main = 'Q-Q Plot:\n Sampling from Poisson distribution (lambda = 3)')
+qqline(mean_dta.poi, col = 'red')
+```
+
+3. Uniform distribution (set Uniform distribution $\in [0,1]$)
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+dta.uni = replicate(5000, runif(5000))
+mean_dta.uni = apply(dta.uni, 2, mean)
+shapiro.test(mean_dta.uni)
+plot(density(mean_dta.uni), main='Probability Density Plot:\n Sampling from uniform distribution (0~1)')
+qqnorm(mean_dta.uni, main = 'Q-Q Plot:\n Sampling from uniform distribution (0~1)')
+qqline(mean_dta.uni, col = 'red')
+```
+
+4. Exponential distribution (set $\lambda = 3$)
+
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+dta.exp = replicate(5000, rexp(5000, 3))
+mean_dta.exp = apply(dta.exp, 2, mean)
+shapiro.test(mean_dta.exp)
+plot(density(mean_dta.exp), main='Probability Density Plot:\n Sampling from exponential distribution (lambda = 3)')
+qqnorm(mean_dta.exp, main = 'Q-Q Plot:\n Sampling from exponential distribution (lambda = 3)')
+qqline(mean_dta.exp, col = 'red')
+```
+
+由上述的檢定與 Q-Q plot 顯示，隨機變數的種類，不影響其平均值是否收斂於常態分布。總結來說，在上課提到的四個隨機變數，經過測試後發現 5000 個樣本平均值，會收斂於常態分布。
+
+## (四) 其他的描述統計量
+Wikipedia 說明的中央極限定理，隨機變數的平均數會收斂於常態分布，以下測試其他的描述統計量(ex: 標準差、最大值、最小值、偏態(skewness, 三階動差)、峰度(kurtosis, 四階動差))，使用前述的 $N(15, 21)$ 分布進行測試。
+
+1. 標準差
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+sd_dta = apply(dta, 2, sd)
+shapiro.test(sd_dta)
+plot(density(sd_dta), main='Probability Density Plot:\n Standard deviation of normal distribution sample')
+qqnorm(sd_dta, main = 'Q-Q Plot:\n Standard deviation of normal distribution sample')
+qqline(sd_dta, col = 'red')
+```
+
+2. 最大值
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+max_dta = apply(dta, 2, max)
+shapiro.test(max_dta)
+plot(density(max_dta), main='Probability Density Plot:\n Maximum of normal distribution sample')
+qqnorm(max_dta, main = 'Q-Q Plot:\n Maximum of normal distribution sample')
+qqline(max_dta, col = 'red')
+```
+
+3. 最小值
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+min_dta = apply(dta, 2, min)
+shapiro.test(min_dta)
+plot(density(min_dta), main='Probability Density Plot:\n Minimum of normal distribution sample')
+qqnorm(min_dta, main = 'Q-Q Plot:\n Minimum of normal distribution sample')
+qqline(min_dta, col = 'red')
+```
+
+4. 偏態
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+skew_dta = apply(dta, 2, skewness)
+shapiro.test(skew_dta)
+plot(density(skew_dta), main='Probability Density Plot:\n Skewness of normal distribution sample')
+qqnorm(skew_dta, main = 'Q-Q Plot:\n Skewness of normal distribution sample')
+qqline(skew_dta, col = 'red')
+```
+
+5. 峰度
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+kurt_dta = apply(dta, 2, kurtosis)
+shapiro.test(kurt_dta)
+plot(density(kurt_dta), main='Probability Density Plot:\n Kurtosis of normal distribution sample')
+qqnorm(kurt_dta, main = 'Q-Q Plot:\n Kurtosis of normal distribution sample')
+qqline(kurt_dta, col = 'red')
+```
+
+透過上面的測試，我們發現改成其他描述統計量時，只有標準差與偏態 (即二階與三階動差) 會收斂於常態。提出以下兩種可能性：
+
+1. 所有的描述統計量都會收斂於常態分布，只是目前 5000 個隨機變數的描述統計量，可能不夠「大量」，因此沒有收斂於常態分布
+2. 只有動差類的描述統計量，會收斂於常態分布，隨著階層越高，需要的「大量」也越大，因此本次測試的峰度並沒有收斂。
+
+上述的可能性可以歸納成兩個測試項目：
+
+1. 增加隨機變數的量
+
+然而本文中使用的 Shapiro-Wilk 最多接受 5000 筆資料。但更換檢定方法，無法確定效果來自「更換檢定方法」還是「增加樣本量」。由於時間因素，本文增加樣本數繼續測試。
+
+2. 使用其他描述統計量測試 (下方使用中位數測試)
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+median_dta = apply(dta, 2, median)
+shapiro.test(median_dta)
+plot(density(median_dta), main='Probability Density Plot:\n Median of normal distribution sample')
+qqnorm(median_dta, main = 'Q-Q Plot:\n Median of normal distribution sample')
+qqline(median_dta, col = 'red')
+```
+
+使用中位數測試後發現，並非只有動差類的描述統計量，會收斂於常態分布。整體來說，更改樣本的描述統計值時，經過測試結果發現「隨機變數的中位數、標準差、偏態，會收斂於常態分布」。其他的描述統計量，由於 Shapiro-Wilk test 的限制，不確定是不會收斂，還是樣本不夠大量，因此沒有收斂於常態分配。此處的隨機變數是常態分布，並未測試其他分布的情況。
+
+## (五) 大量有多大
+最後測試需要多少樣本數才能稱為大量，由於在極小樣本時，p-value 的參考價值有限，故本小節主要觀察機率密度函數圖與 Q-Q plot。以下測試不同數量隨機變數的平均數，會收斂於常態分布。
+
+1. $N = 3$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+set.seed(Sys.time())
+N3_dta = sample(mean_dta, 3)
+shapiro.test(N3_dta)
+plot(density(N3_dta), main='Probability Density Plot:\n Three means of normal distribution sample')
+qqnorm(N3_dta, main = 'Q-Q Plot:\n Three means of normal distribution sample')
+qqline(N3_dta, col = 'red')
+```
+
+2. $N = 5$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+N5_dta = sample(mean_dta, 5)
+shapiro.test(N5_dta)
+plot(density(N5_dta), main='Probability Density Plot:\n Five means of normal distribution sample')
+qqnorm(N5_dta, main = 'Q-Q Plot:\n Five means of normal distribution sample')
+qqline(N5_dta, col = 'red')
+```
+
+3. $N = 10$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+N10_dta = sample(mean_dta, 10)
+shapiro.test(N10_dta)
+plot(density(N10_dta), main='Probability Density Plot:\n Ten means of normal distribution sample')
+qqnorm(N10_dta, main = 'Q-Q Plot:\n Ten means of normal distribution sample')
+qqline(N10_dta, col = 'red')
+```
+
+4. $N = 20$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+N20_dta = sample(mean_dta, 20)
+shapiro.test(N20_dta)
+plot(density(N20_dta), main='Probability Density Plot:\n Twenty means of normal distribution sample')
+qqnorm(N20_dta, main = 'Q-Q Plot:\n Twenty means of normal distribution sample')
+qqline(N20_dta, col = 'red')
+```
+
+5. $N = 30$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+N30_dta = sample(mean_dta, 30)
+shapiro.test(N30_dta)
+plot(density(N30_dta), main='Probability Density Plot:\n Thirty means of normal distribution sample')
+qqnorm(N30_dta, main = 'Q-Q Plot:\n Thirty means of normal distribution sample')
+qqline(N30_dta, col = 'red')
+```
+
+5. $N = 50$
+```{r, echo = F, out.width='50%', out.heigth='400px'}
+N50_dta = sample(mean_dta, 50)
+shapiro.test(N50_dta)
+plot(density(N50_dta), main='Probability Density Plot:\n Fifty means of normal distribution sample')
+qqnorm(N50_dta, main = 'Q-Q Plot:\n Fifty means of normal distribution sample')
+qqline(N50_dta, col = 'red')
+```
+
+# 四、總結
+
+經過本文的一系列實驗，關於「大量互相獨立的隨機變數之均值，經適當的標準化後，依分布收斂於常態。」我們提出了四個問題並發現，中央極限定理比想像中的還要穩定。不論是替換隨機變數，或是計算不同的隨機變數描述統計值，甚至是沒有標準化，觀察到結果依然收斂於常態分布。
+
+不過本文也有些不完整之處，個人認為最明顯的問題在於檢定常態的方法。本文使用統計檢定的方式，並直接使用 p-value 來判斷結果，這其實是一個蠻危險的作法。p-value 只是眾多指標中的一個指標，由於使用簡單與教學方便，因此在許多檢定上常被使用，但不表示 p-value 可以當作唯一的指標。(ex: 重複 100 次實驗，可能會得到 94 次 p-value < 0.05 的結果，當觀察到另外的 6 次時，直接下結論就錯了。)
+
+期望若有學弟妹想要做相關的 final project，可以使用其他的方法來判斷是否為常態分布。
+
+# 五、心得
+從大一以來就一直聽聞中央極限定理的神奇事蹟，但也就停留在最基本的認識，很開心透過這次的 Final Project 能與這位認識已久的朋友，有更深入的認識。若學弟妹有需要，還請老師將這份報告分享給他們，感謝老師這學期的指導。
+
+# Reference

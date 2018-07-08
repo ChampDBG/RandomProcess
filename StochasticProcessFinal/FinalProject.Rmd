@@ -3,12 +3,12 @@ title: "Stochastic Process Final Project"
 subtitle: "Testing robustness of centrel limit theroy"
 author: "Wu, Tung Cheng"
 output: 
+  html_document: default
   pdf_document: 
     includes:
       in_header: header.tex
     keep_tex: yes
     latex_engine: xelatex
-  html_document: default
   word_document: default
 bibliography: mybib.bib
 csl: ieee.csl
@@ -276,10 +276,5 @@ qqline(N50_dta, col = 'red')
 經過本文的一系列實驗，關於「大量互相獨立的隨機變數之均值，經適當的標準化後，依分布收斂於常態。」我們提出了四個問題並發現，中央極限定理比想像中的還要穩定。不論是替換隨機變數，或是計算不同的隨機變數描述統計值，甚至是沒有標準化，觀察到結果依然收斂於常態分布。
 
 不過本文也有些不完整之處，個人認為最明顯的問題在於檢定常態的方法。本文使用統計檢定的方式，並直接使用 p-value 來判斷結果，這其實是一個蠻危險的作法。p-value 只是眾多指標中的一個指標，由於使用簡單與教學方便，因此在許多檢定上常被使用，但不表示 p-value 可以當作唯一的指標。(ex: 重複 100 次實驗，可能會得到 94 次 p-value < 0.05 的結果，當觀察到另外的 6 次時，直接下結論就錯了。)
-
-期望若有學弟妹想要做相關的 final project，可以使用其他的方法來判斷是否為常態分布。
-
-# 五、心得
-從大一以來就一直聽聞中央極限定理的神奇事蹟，但也就停留在最基本的認識，很開心透過這次的 Final Project 能與這位認識已久的朋友，有更深入的認識。若學弟妹有需要，還請老師將這份報告分享給他們，感謝老師這學期的指導。
 
 # Reference
